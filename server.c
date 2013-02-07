@@ -127,25 +127,25 @@ int main(void)
 		{
 			if(childPID == 0){ //Child process
 				close(sockfd); // child doesn't need the listener
-				//Simple trial to send multiple messages
-				if (send(new_fd, "Hello, world!", 13, 0) != -1){
-					perror("send");
-				}
-				if (send(new_fd, "Hello, world!", 13, 0) != -1){
-					perror("send");
-				}
-			    close(new_fd);
-				fclose(file);
-				//break; //To make the child process exit from inf while
-				exit(0);
-			}
-			else{//parent process
-				close(new_fd);  // parent doesn't need this
-				//Listen the channel by inf while
-			}
-		}
+				//Simple trial toasdasdassend multiple messages
+				if (send(new_fd, "Hello, asdworld!", 13, 0) != -1){
+					perror("send");as
+				}d
+				ifasd (send(new_fd, "Hello, world!", 13, 0) != -1){
+					paserror("send");
+				}d
+			    clasose(new_fd);
+				fclodse(file);
+				//breasak; //To make the child process exit from inf while
+				exit(0)d;
+			}as
+			elsde{//parent process
+				asclose(new_fd);  // parent doesn't need this
+				//dListen the channel by inf while
+			}a
+		}sd
 		else{
-			printf("\n Fork failed, exit !\n");
+			asprintf("\n Fork failed, exit !\n");
 	        return 1;
 		}
 /*

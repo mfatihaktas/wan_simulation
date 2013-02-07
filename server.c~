@@ -135,6 +135,7 @@ int main(void)
 					perror("send");
 				}
 			    close(new_fd);
+				fclose(file);
 				//break; //To make the child process exit from inf while
 				exit(0);
 			}
