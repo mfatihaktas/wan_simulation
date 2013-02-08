@@ -81,30 +81,20 @@ int main(int argc, char *argv[])
 	FILE *file; 
 	file = fopen("file.txt", "w");
 	fprintf(file,"%s","Top of the file");
-	//Simply try to receive multiple messages
-	if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-	    perror("recv");
-	}
-	buf[numbytes] = '\0';
-	printf("client: received '%s'\n",buf);
-	memset(buf, 0, numbytes);
-	if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-	    perror("recv");
-	}
-	buf[numbytes] = '\0';
-	printf("client: received '%s'\n",buf);
-	memset(buf, 0, numbytes);
-/*
+
 	while(1){
 		if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
 		    perror("recv");
 		    exit(1);
 		}
-		buf[numbytes] = '\0';
-		printf("client: received '%s'\n",buf);
-		fprintf(file,"%s",buf);
+		else if(numbytes==0){ //socket is closed by the server
+			break; //Stop receiving
+		}
+		printf("numbytes: %d\n",numbytes);
+		//printf("CLIENT RECEIVED: '%s'\n",buf);
+		fprintf(file,"\n%s",buf);
+		memset(buf, 0, MAXDATASIZE);
 	}
-*/
     close(sockfd); //Socket will be closed by the server when all of the data is sent
 	fclose(file); /*done!*/ 
 

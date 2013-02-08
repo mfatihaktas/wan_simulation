@@ -18,8 +18,8 @@
 #define PORT "3490"  // the port users will be connecting to
 
 #define BACKLOG 10     // how many pending connections queue will hold
-#define nofChunkToSend 100
-
+#define nofChunkToSend 1000
+#define MAX_SEND_BUF_LENGTH 100
 void sigchld_handler(int s)
 {
     while(waitpid(-1, NULL, WNOHANG) > 0);
@@ -46,7 +46,7 @@ int main(void)
     char s[INET6_ADDRSTRLEN];
     int rv;
 	pid_t childPID; //control variable for multithreading
-
+	//char send_buf[MAX_SEND_BUF_LENGTH];
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -127,13 +127,27 @@ int main(void)
 		{
 			if(childPID == 0){ //Child process
 				close(sockfd); // child doesn't need the listener
-				//Simple trial to send multiple messages
-				if (send(new_fd, "Hello, world!", 13, 0) != -1){
-					perror("send");
-				}
-				if (send(new_fd, "Hello, world!", 13, 0) != -1){
-					perror("send");
-				}
+				//send the bulk data to the client
+				unsigned int nof_chunksent=0;
+				//strcpy(send_buf, "Hello World\0");
+				char send_buf[MAX_SEND_BUF_LENGTH];
+				char temp_buffer[10];
+
+				while(nof_chunksent < nofChunkToSend){
+					strcpy(send_buf, "Hello World birader");
+					sprintf(temp_buffer, "%d", nof_chunksent);
+					strcat(send_buf, temp_buffer);
+					//printf("send_buf: %s\n", send_buf);
+					//send send_buf to receiver
+					if (send(new_fd, send_buf, (int)strlen(send_buf), 0) != -1){
+						++nof_chunksent;
+					}
+					else
+			            perror("send");
+
+					memset(send_buf, 0, MAX_SEND_BUF_LENGTH);//Initialize for the next sending session
+					memset(temp_buffer, 0, 10);
+				}//All bulk data sent, close the socket
 			    close(new_fd);
 				fclose(file);
 				//break; //To make the child process exit from inf while
@@ -148,30 +162,7 @@ int main(void)
 			printf("\n Fork failed, exit !\n");
 	        return 1;
 		}
-/*
-        if (!fork()) { // this is the child process
-            close(sockfd); // child doesn't need the listener
-			//Simple trial to send multiple messages
-			if (send(new_fd, "Hello, world!", 13, 0) != -1){
-				perror("send");
-			}
-			if (send(new_fd, "Hello, world!", 13, 0) != -1){
-				perror("send");
-			}
-	        close(new_fd);	
-*/
-/*
-		    //send the bulk data to the client
-			unsigned char nof_chunksent=0;
-			while(nof_chunksent < nofChunkToSend){
-				if (send(new_fd, "Hello, world!", 13, 0) != -1){
-					++nof_chunksent;
-				}
-				else
-	                perror("send");
-			}//All bulk data sent, close the socket
-			close(new_fd);
-*/
+
 	}
 	fclose(file); /*done!*/ 
 
