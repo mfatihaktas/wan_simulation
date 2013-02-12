@@ -18,8 +18,8 @@ producer: $(producer_sf)
 		gcc -o $(producer_tf) $<
 gateway: $(gateway_sf)
 		gcc -o $(gateway_tf) $<
-dsanode: $(dsanode_sf)
-		gcc -o $(dsanode_tf) $<
+dsanode: $(gateway_sf)
+		gcc -o $(gateway_tf) $<
 		
 clean:
 		rm -rf $(server_tf) $(client_tf) $(producer_tf) $(gateway_tf)

@@ -1,5 +1,5 @@
 /*
-** server.c -- a stream socket server demo
+** The received data from the producer will be placed into the staging nodes.
 */
 
 #include <stdio.h>
@@ -33,7 +33,7 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-#define MAXSENDLENGTH 100
+#define MAXSENDLENGTH 200
 #define MAXRECVLENGTH 100
 int nofChunksToSend=0;
 //Some buffers necessary for communication
