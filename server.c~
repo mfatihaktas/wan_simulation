@@ -17,7 +17,12 @@
 
 #define PORT "4000"  // the port users will be connecting to
 #define BACKLOG 10     // how many pending connections queue will hold
+<<<<<<< HEAD
 
+=======
+#define nofChunkToSend 1000
+#define MAX_SEND_BUF_LENGTH 100
+>>>>>>> f44958b98b30ef6f4d2ceb1d7f797424ee54040f
 void sigchld_handler(int s)
 {
     while(waitpid(-1, NULL, WNOHANG) > 0);
@@ -33,7 +38,7 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-#define MAXSENDLENGTH 100
+#define MAXSENDLENGTH 200
 #define MAXRECVLENGTH 100
 int nofChunksToSend=0;
 //Some buffers necessary for communication
@@ -136,6 +141,7 @@ main(void)
 		{
 			if(childPID == 0){ //Child process
 				close(sockfd); // child doesn't need the listener
+<<<<<<< HEAD
 				//Send "WDW?"; What do you want?
 				sendTo(new_fd, "WDW?");
 				recvFrom(new_fd);
@@ -143,15 +149,34 @@ main(void)
 				//send the bulk data to the client
 				unsigned int nof_chunksent=0;
 				while(nof_chunksent < nofChunksToSend){
+=======
+				//send the bulk data to the client
+				unsigned int nof_chunksent=0;
+				//strcpy(send_buf, "Hello World\0");
+				char send_buf[MAX_SEND_BUF_LENGTH];
+				char temp_buffer[10];
+
+				while(nof_chunksent < nofChunkToSend){
+>>>>>>> f44958b98b30ef6f4d2ceb1d7f797424ee54040f
 					strcpy(send_buf, "Hello World birader");
 					sprintf(temp_buffer, "%d", nof_chunksent);
 					strcat(send_buf, temp_buffer);
 					//printf("send_buf: %s\n", send_buf);
 					//send send_buf to receiver
+<<<<<<< HEAD
 					if (sendTo(new_fd, send_buf) == 1){
 						++nof_chunksent;
 					}
 					memset(send_buf, 0, MAXSENDLENGTH);//Initialize for the next chunk sending session
+=======
+					if (send(new_fd, send_buf, (int)strlen(send_buf), 0) != -1){
+						++nof_chunksent;
+					}
+					else
+			            perror("send");
+
+					memset(send_buf, 0, MAX_SEND_BUF_LENGTH);//Initialize for the next sending session
+>>>>>>> f44958b98b30ef6f4d2ceb1d7f797424ee54040f
 					memset(temp_buffer, 0, 10);
 				}//All bulk data sent, close the socket
 			    close(new_fd);

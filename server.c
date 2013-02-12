@@ -17,7 +17,6 @@
 
 #define PORT "4000"  // the port users will be connecting to
 #define BACKLOG 10     // how many pending connections queue will hold
-
 void sigchld_handler(int s)
 {
     while(waitpid(-1, NULL, WNOHANG) > 0);
