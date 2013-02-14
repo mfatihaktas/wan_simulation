@@ -3,7 +3,7 @@ echo $1
 if [ $1 = 'p' ]
 then
 	make producer
-	./producer 127.0.0.1 1210 #for now
+	./producer 127.0.0.1 160 #for now
 elif [ $1 = 'g' ]
 then
 	make gateway
@@ -19,7 +19,8 @@ then
 elif [ $1  = 'd' ]
 then
 	make dsanode
-	./dsanode #for now
+	./dsanode 5000 #for now
+	
 else
 	echo "Argument did not match !"
 fi

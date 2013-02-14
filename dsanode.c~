@@ -1,6 +1,5 @@
 /*
-** gateway implementation
-** Important: argv[2] is the port dsanode is listening
+** dsanode implementation_recv and store data !!!
 */
 
 #include <stdio.h>
@@ -60,29 +59,30 @@ pid_t childPID; //control variable for multithreading
 char PORT[5];
 int main(int argc, char *argv[])
 {
-	printf("come onnn\n");
 	if(argc == 1)
 		strcpy(PORT, "5000");
-	else if(argc == 2)
+	else if(argc == 2){
 		strcpy(PORT, argv[1]);
+		printf("1\n");
+	}
 	else{
 		printf("# of args !\n");
 		exit(0);
 	}
-	printf("come onnn2\n");
 //For debugging
 	FILE *file;
-	char filename[20];
+	char filename[25];
 	strcpy(filename, "file_dsa_p");
-	strcat(filename, argv[2]); //argv[2]:PORT # of the dsa node
+	strcat(filename, PORT); //argv[2]:PORT # of the dsa node
 	strcat(filename, ".txt");
 	file = fopen(filename, "w");
 	fprintf(file,"%s","Top of the file");
 //
+printf("file name: %s\n", filename);
 	//char send_buf[MAX_SEND_BUF_LENGTH];
 	socketStuff();
 	
-    printf("gateway: waiting for connections...\n");
+    printf("dsanode: waiting for connections...\n");
     while(1) {  // main accept() loop
         sin_size = sizeof their_addr;
         new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
         }
         inet_ntop(their_addr.ss_family,get_in_addr((struct sockaddr *)&their_addr),s, sizeof s);
 
-        printf("gateway: got connection from %s\n", s);
+        printf("dsanode: got connection from %s\n", s);
 		//fprintf(file,"%s","server: got connection from");
 		//fprintf(file,"%s\n",s);
 		//Threading
@@ -159,6 +159,7 @@ int recvFrom(int socketFD){
 	}	
 	else if (numbytes == 0) {//socket is closed by the other side
 		printf("Socket is closed by GW\n");
+		//printf("nothing recved\n");
 	    exit(1);
 	}
 	else{ //Unsuccessful reception

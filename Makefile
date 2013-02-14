@@ -17,7 +17,7 @@ client: $(client_sf)
 producer: $(producer_sf)
 		gcc -o $(producer_tf) $<
 gateway: $(gateway_sf)
-		gcc -o $(gateway_tf) $<
+		gcc -pthread -o $(gateway_tf) $<
 dsanode: $(dsanode_sf)
 		gcc -o $(dsanode_tf) $<
 		

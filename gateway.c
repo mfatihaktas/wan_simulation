@@ -35,34 +35,37 @@ void *get_in_addr(struct sockaddr *sa)
 }
 #define MAXSENDLENGTH 200
 #define MAXRECVLENGTH 100
+#define MAXRECVSTAGINGLENGTH 30
 #define NOFSTAGINGNODES 5
 int nofChunksToRecv=0;
 //Some buffers necessary for communication
-char send_buf[MAXSENDLENGTH];
-char recv_buf[MAXRECVLENGTH];
+char send_buff[10*MAXSENDLENGTH];
+char recv_buff[MAXRECVLENGTH];
+char recv_buff_staging[MAXRECVSTAGINGLENGTH];
 char temp_buffer[10];
-int numbytes;
 
+int numbytes;
 int sendTo(int socketFD, char* send_buf);
-int recvFrom(int socketFD);
-void socketStuff();
+int recvFrom(int socketFD, int spec);
+void *sendToStage();
+void serverSocketStuff();
 //
 struct dsanode_id{
 	char ip[20];
-	int port;
+	char* port;
 } dsanode_ids[NOFSTAGINGNODES];
 void set_dsanode_ids(){
 	//Manual entry for convenience in the network building stage !!! Not beautiful hereeeee
 	strcpy(dsanode_ids[0].ip, "127.0.0.1");
-	dsanode_ids[0].port = 5000;
+	dsanode_ids[0].port = "5000";
 	strcpy(dsanode_ids[1].ip, "127.0.0.1");
-	dsanode_ids[1].port = 5001;
+	dsanode_ids[1].port = "5001";
 	strcpy(dsanode_ids[2].ip, "127.0.0.1");
-	dsanode_ids[2].port = 5002;
+	dsanode_ids[2].port = "5002";
 	strcpy(dsanode_ids[3].ip, "127.0.0.1");
-	dsanode_ids[3].port = 5003;
+	dsanode_ids[3].port = "5003";
 	strcpy(dsanode_ids[4].ip, "127.0.0.1");
-	dsanode_ids[4].port = 5004;
+	dsanode_ids[4].port = "5004";
 }
 
 // For data staging
@@ -80,14 +83,16 @@ void set_dsanode_ids(){
     char s[INET6_ADDRSTRLEN];
     int rv;
 	pid_t childPID; //control variable for multithreading
+	FILE *file;
+	pthread_t tt;
 //
 int main(int argc, char *argv[])
 {
 //For debugging
-	FILE *file; 
 	file = fopen("file_g.txt", "w");
 	fprintf(file,"%s","Top of the file");
 //
+	
 	//char send_buf[MAX_SEND_BUF_LENGTH];
 	set_dsanode_ids();
 	serverSocketStuff();
@@ -112,39 +117,36 @@ int main(int argc, char *argv[])
 			if(childPID == 0){ //Child process
 				close(sockfd); // child doesn't need the listener
 				//Wait for #ofChunks:X message from p
-				recvFrom(new_fd); //recv the inquiry of server
+				recvFrom(new_fd, 0);
 				char subbuff[10];
-				memcpy( subbuff, recv_buf, 10 );
+				memcpy( subbuff, recv_buff, 10 );
 				subbuff[10] = '\0';
 				if(strcmp(subbuff, "#ofChunks:")==0){
 					sendTo(new_fd, "OK"); //the # of chunks that client desires to get
 				}
 				else{
-					printf("Recved irrelevant message:%s\n", recv_buf);
+					printf("Recved irrelevant message:%s\n", recv_buff);
 					exit(1);
 				}
 				//send the bulk data to the client
-				strncpy(subbuff, recv_buf+strlen("#ofChunks:"), (strlen(recv_buf)-strlen("#ofChunks:")));
+				strncpy(subbuff, recv_buff+strlen("#ofChunks:"), (strlen(recv_buff)-strlen("#ofChunks:")));
 				nofChunksToRecv=atoi(subbuff);
 				printf("nofChunksToRecv:%d\n", nofChunksToRecv);
 				while(1){
-					numbytes=recvFrom(new_fd);
-
-					printf("numbytes recved: %d\n",numbytes);
-					//printf("GW RECEIVED: '%s'\n",recv_buf);
-					//fprintf(file,"\n%s",recv_buf);
+					numbytes=recvFrom(new_fd, 0);
+					fprintf(file, "\nnumbytes recved: %d",numbytes);
+					//printf("GW RECEIVED: '%s'\n",recv_buff);
+					fprintf(file,"\n%s",recv_buff);
+					pthread_join(tt,NULL); //Wait for the previous thread to finish
+					strcat(send_buff, recv_buff);//buffer all the data to be sent to dsa stage
 					//Instead of writing the recved data to a file send the data to the staging nodes
-					pthread_t tt;
-					rc = pthread_create(&tt, NULL, sendToStage, NULL);
+					int rc = pthread_create(&tt, NULL, sendToStage, NULL);
 					if (rc){
 				    	printf("ERROR; return code from pthread_create() is %d\n", rc);
 				        exit(-1);
 					}
-					memset(recv_buf, 0, MAXRECVLENGTH);
+					memset(recv_buff, 0, MAXRECVLENGTH);
 				}
-			    close(new_fd);
-				fclose(file);
-				exit(0);
 			}
 			else{//parent process
 				close(new_fd);  // parent doesn't need this
@@ -158,28 +160,71 @@ int main(int argc, char *argv[])
 
 	}
 	fclose(file); /*done!*/ 
-	pthread_exit(NULL); //For being safe
     return 0;
 }
-
-int connectToDsanode(int index);
 /*Data staging will be done in a dump manner for now!
 **Start sending to 1st dsa node and then fill its advertised availspace.
 **Then send the remaining data to the next dsanode in the row. So on so forth...
+** 
+** In this current implementation every time a data is sent to dsanode a new 
+** socket will be created and AVAILSPACE message exchange will be realized btw 
+** GW and DSANODE. This can be further improved by spending some more time implementing
+** it. Since the communication overhead in the DSA AREA is negligible due to the 
+** tech used here, we can simply continue with the following scenario;
+	(i) Pick a random dsanode. 
+	(ii) Ask for the availspace to the staging node. 
+	(iii) Send portion of data. & decrement from the total data 
+	(iv) If data needs to be sent is done move (vi)
+	(v) Move i
 */
+int connectToDsanode(int index);
+char* subBuff(char* buff, int buf_length, int start_i, int end_i);
+void updateSendBuff(int howmuchIsent);
+#define min(a,b) (((a)<(b))? (a):(b))
 int currentAvailSpace=0;
 int currentDsanodeIndex=0;
-void sendToStage(){
+int dsa_sock_df;
+int prenumbytesToSend=0;
+int numbytesToSend=0;
+void *sendToStage(){
 //TODO: burda GW client gibi davranip staging nodelar ile connection kurmali
-	int dsa_sock_df=connectToDsanode(currentDsanodeIndex);
-	//Send the data
-	sendTo(dsa_sock_df, "AVAILSPACE");
-	recvFrom(dsa_sock_df);
-	currentAvailSpace=atoi(recv_buf); //No control or check! trust dsanode
-	printf("\ncurrentDsanodeIndex: %d\n",currentDsanodeIndex);
-	printf("currentAvailSpace: %d\n\n",currentAvailSpace);
+	printf("_________________________________________\n");
+	numbytesToSend = strlen(send_buff);
+	printf("current send_buff_staging:%s\n", send_buff);
+	currentDsanodeIndex= 0;//rand() % NOFSTAGINGNODES;
+	printf("GW is trying to connect to dsanode with index: %d, ip:%s, port:%s\n", currentDsanodeIndex, dsanode_ids[currentDsanodeIndex].ip, dsanode_ids[currentDsanodeIndex].port);
 	
-	pthread_exit(NULL);
+	dsa_sock_df=connectToDsanode(currentDsanodeIndex);
+	//necessary comm
+	sendTo(dsa_sock_df, "AVAILSPACE");
+	recvFrom(dsa_sock_df, 1);//1 is for recving from dsanode
+	printf("AVAILSPACE:%s\n",recv_buff_staging);
+	currentAvailSpace=atoi(recv_buff_staging); //No control or check! trust dsanode
+	//send the data
+	int numbytesSent = min(numbytesToSend, currentAvailSpace);
+	//send numbytesToSend bytes of data prenumbytesToSend is in stage_buff the rest is in send_buff
+	if(numbytesSent > 0){ //There is some data to send
+		sendTo(dsa_sock_df, subBuff(send_buff, strlen(send_buff) ,0, numbytesSent));
+	}
+	//Update the send_buff to make it ready for the next session 
+	updateSendBuff(numbytesSent);
+	printf("updated send_buff:%s\n", send_buff);
+	close(dsa_sock_df);
+	printf("-----------------------------------------\n");
+	//pthread_exit(NULL);
+}
+
+char* subBuff(char* buff, int buf_length, int start_i, int end_i){
+	if(start_i > buf_length || end_i > buf_length){
+		printf("indexes -> problem\n");
+		return NULL;
+	}
+	char* subbuff=malloc((end_i-start_i)*sizeof(char));
+	strncpy(subbuff, buff+start_i, (end_i-start_i));
+	return subbuff;
+}
+void updateSendBuff(int howmuchIsent){
+	strcpy(send_buff, subBuff(send_buff, strlen(send_buff), howmuchIsent, strlen(send_buff)));
 }
 
 /*Will create a socket connection to the dsanode with id: dsanode_ids[index]
@@ -197,24 +242,24 @@ int connectToDsanode(int index){
 
     if ((rv = getaddrinfo(dsanode_ids[index].ip, dsanode_ids[index].port, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        return 1;
+        exit(1);
     }
     // loop through all the results and connect to the first we can
     for(p = servinfo; p != NULL; p = p->ai_next) {
         if ((sockfd = socket(p->ai_family, p->ai_socktype,p->ai_protocol)) == -1){
-            perror("client: socket");
+            perror("gateway: socket");
             continue;
         }
         if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
             close(sockfd);
-            perror("client: connect");
+            perror("gateway: connect");
             continue;
         }
         break;
     }
     if (p == NULL) {
         fprintf(stderr, "gw: failed to connect\n");
-        return 2;
+        exit(2);
     }
     inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr),s, sizeof s);
     printf("GW: connecting to %s\n", s);
@@ -233,19 +278,28 @@ int sendTo(int socketFD, char* send_buf){
 	}
 }
 //
-int recvFrom(int socketFD){
-	int numbytes = recv(socketFD, recv_buf, MAXRECVLENGTH, 0); //No flags are necessary
-	//printf("GW recved: %s\n", recv_buf);
+int recvFrom(int socketFD, int spec){//spec: 0 -> recv from p | 1 -> recv from dsanode
+	int numbytes = (spec==0) ? recv(socketFD, recv_buff, MAXRECVLENGTH, 0) : recv(socketFD, recv_buff_staging, MAXRECVLENGTH, 0); //No flags are necessary
+	//printf("GW recved: %s\n", recv_buff);
 	if(numbytes>0){//Successful reception
-		return 1;
+		return numbytes;
 	}	
 	else if (numbytes == 0) {//socket is closed by the other side
-		printf("Socket is closed by GW\n");
-	    exit(1);
+		if(spec == 0){//Normal process op
+			printf("GW_P socket is closed by P\n");
+			close(new_fd);
+			fclose(file);
+			pthread_join(tt,NULL);
+			exit(1);	
+		}
+		else{ //Thread recving
+			printf("GW_DSANODE socket is closed by DSANODE\n");
+			//Nothing TODO ?
+		} 
 	}
 	else{ //Unsuccessful reception
 		perror("recv");
-		return -1;
+		exit(1);
 	}
 }
 

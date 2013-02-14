@@ -92,9 +92,8 @@ main(int argc, char *argv[])
     freeaddrinfo(servinfo); // all done with this structure
 	
 	//Communicate with the gateway
-	strcpy(send_buf, "#ofChunks:");
-	strcat(send_buf, argv[2]); //argv[2]:# of chunks to be sent
-	sendTo(sockfd, send_buf);
+	char* t_argv[]={"A",argv[2]};
+	sendTo(sockfd, formCommPacket("DataSendSessionInfo", t_argv));
 	recvFrom(sockfd); //Wait for OK message
 	if(strcmp(recv_buf, "OK")!=0){ //OK is not received
 		printf("OK message is not recved\n");
@@ -124,7 +123,24 @@ main(int argc, char *argv[])
 	//exit(0);
     return 0;
 }
-
+//Based on the comm message type create and return the message
+char* formCommPacket(char* type, char** argv){
+	int packet_l;
+	char* commpacket; 
+	if(strcmp(type, "DataSendSessionInfo")==0){ //
+		packet_l=strlen(argv[0])+strlen(argv[1])+strlen("Session:#ofChunks")+1;
+		commpacket = malloc(packet_l*sizeof(char));
+		strcpy(commpacket, "Session:");
+		strcat(commpacket, argv[0]);
+		strcat(commpacket, "#ofChunks");
+		strcat(commpacket, argv[1]);
+	}
+	else{
+		printf("Type is not recognized by formCommPacket()\n");
+		exit(1);
+	}
+	return commpacket;
+}
 void close_()
 {
 	close(sockfd); //Socket will be closed by the server when all of the data is sent
